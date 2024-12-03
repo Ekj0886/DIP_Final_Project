@@ -85,8 +85,11 @@ def main():
         print(f"{image_no}.png IoU Score: {iou:.2f}")
 
 
-    print(f"Average IoU Score: {Total_Score / image_num:.2f}")
-    print(f"mask1: {Score_list[0]} | mask2: {Score_list[1]} | mask3: {Score_list[2]} | mask4: {Score_list[3]}")
+    print(f"\nAverage IoU Score: {Total_Score / image_num:.2f}")
+    print("================================================")
+    print(f"| mask1: {Score_list[0]} | mask2: {Score_list[1]} | mask3: {Score_list[2]} | mask4: {Score_list[3]} |")
+    print("================================================")
 
+    
 if __name__ == "__main__":
     main()
