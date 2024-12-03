@@ -23,16 +23,20 @@ def main():
         image = cv2.imread(img_path)
 
 
-        # # Image Processing
+        # Image Processing
         out_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        out_image = cv2.GaussianBlur(out_image, (7, 7), 0)
+        out_image = cv2.GaussianBlur(out_image, (11, 11), 0)
         
+        
+
         # otsu method
         __, mask1 = cv2.threshold(out_image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         mask2 = cv2.bitwise_not(mask1)
         # watershed
         mask3 = watershed(image)
         mask4 = cv2.bitwise_not(mask3)
+
+
 
         # Apply masks to the image
         unmasked_pixels_mask1 = cv2.bitwise_and(image, image, mask=mask1)
