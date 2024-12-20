@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 import os
-from skimage.feature import graycomatrix, graycoprops
+from skimage.feature import graycomatrix, graycoprops #type: ignore
 
 
 def get_file_names(directory):

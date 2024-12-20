@@ -1,11 +1,12 @@
 import cv2
 import os
 import numpy as np
-from sklearn.svm import SVC
-from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC #type: ignore
+from sklearn.model_selection import train_test_split, GridSearchCV #type: ignore
+from sklearn.preprocessing import StandardScaler #type: ignore
+from sklearn.model_selection import StratifiedKFold #type: ignore
 from utils import *
-import joblib
+import joblib #type: ignore
 
 train_image_dir = 'training_dataset/image/'
 train_mask_dir = 'training_dataset/mask/'
@@ -17,7 +18,8 @@ seg_img_dir = 'seg_img/'
 svm_model = None  # Initialize the model as global variable
 
 def Train():
-    print('== Train SVM')
+    print('== Train SVM mode')
+    print('== Extract Features')
     global svm_model  # Indicate that we want to modify the global svm_model variable
     image_files = get_file_names(train_image_dir)
     mask_files = get_file_names(train_mask_dir)
@@ -32,9 +34,9 @@ def Train():
         mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
         print('    img ' + str(img_name) + ' load ' + str(image.shape))
         
-        image = cv2.GaussianBlur(image, (5, 5), 0)
+        image = cv2.GaussianBlur(image, (3, 3), 0)
         
-        out_image, regions = segment_image_kmeans_with_spatial(image, K=10)
+        out_image, regions = segment_image_kmeans_with_spatial(image, K=20)
         
         water_regions, non_water_regions = split_regions_by_mask(regions, mask)
     
@@ -51,6 +53,7 @@ def Train():
         output_img_path = os.path.join(seg_img_dir, f"{os.path.splitext(img_name)[0]}_segmented.png")
         cv2.imwrite(output_img_path, out_image)
 
+
     X = np.array(all_features)
     y = np.array(all_labels)
 
@@ -63,14 +66,20 @@ def Train():
     
     X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
 
+    print('== SVM Training')
+    svm_model = SVC(kernel='poly', class_weight='balanced')
+
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+
     # Hyperparameter tuning for SVM with polynomial kernel
     param_grid = {
         'C': [0.1, 1, 10],
         'degree': [2, 3, 4],
-        'coef0': [0, 1, 10]
+        'coef0': [0, 1, 10],
+        'kernel': ['poly']
     }
-    svm = SVC(kernel='poly', probability=True)
-    grid_search = GridSearchCV(svm, param_grid, cv=5)
+    svm = SVC(class_weight='balanced')
+    grid_search = GridSearchCV(svm, param_grid, cv=cv, scoring='accuracy')
     grid_search.fit(X_train, y_train)
 
     # Best model and validation accuracy
@@ -82,6 +91,7 @@ def Train():
     
     # Save the model to a file
     joblib.dump(svm_model, 'svm_model.pkl')
+    
     
 
 def Test():
@@ -103,7 +113,7 @@ def Test():
         mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
         image = cv2.GaussianBlur(image, (5, 5), 0)
     
-        _, regions = segment_image_kmeans_with_spatial(image, K=15)
+        _, regions = segment_image_kmeans_with_spatial(image, K=20)
         
         binary_mask = np.zeros(image.shape[:2], dtype=np.uint8)
 
