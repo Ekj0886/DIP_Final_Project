@@ -10,8 +10,13 @@ import joblib #type: ignore
 
 train_image_dir = 'training_dataset/image/'
 train_mask_dir = 'training_dataset/mask/'
+
 test_image_dir = 'testing_dataset/image/'
 test_mask_dir = 'testing_dataset/mask/'
+# test_image_dir = 'water_v1/water_v1/JPEGImages/ADE20K'
+# test_mask_dir = 'water_v1/water_v1/Annotations/ADE20K'
+
+
 output_dir = 'testing_dataset/output/'
 seg_img_dir = 'seg_img/' 
 
@@ -34,10 +39,12 @@ def Train():
         mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
         print('    img ' + str(img_name) + ' load ' + str(image.shape))
         
-        image = cv2.GaussianBlur(image, (3, 3), 0)
+        image = white_balance_gray_world(image)
+
+        image = cv2.GaussianBlur(image, (7, 7), 0)
         
-        out_image, regions = segment_image_kmeans_with_spatial(image, K=20)
-        
+        out_image, regions = segment_image_kmeans_with_spatial(image, K=25)
+
         water_regions, non_water_regions = split_regions_by_mask(regions, mask)
     
         for region_pixels in water_regions:
@@ -73,7 +80,7 @@ def Train():
 
     # Hyperparameter tuning for SVM with polynomial kernel
     param_grid = {
-        'C': [0.1, 1, 10],
+        'C': [0.5, 1, 10],
         'degree': [2, 3, 4],
         'coef0': [0, 1, 10],
         'kernel': ['poly']
@@ -104,17 +111,31 @@ def Test():
     mask_files = get_file_names(test_mask_dir)
     os.makedirs(output_dir, exist_ok=True)
     
+    image_max_num = 20
+    counter = 0
+
     iou_scores = []  # List to store IoU scores for each image
     
     for img_name, mask_name in zip(image_files, mask_files):
+        if counter == image_max_num:
+            break
+        counter += 1
+
         img_path = os.path.join(test_image_dir, img_name)
         mask_path = os.path.join(test_mask_dir, mask_name)
         image = cv2.imread(img_path)
         mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
-        image = cv2.GaussianBlur(image, (5, 5), 0)
-    
-        _, regions = segment_image_kmeans_with_spatial(image, K=20)
+
+        # White balance
+        image = white_balance_gray_world(image)
+
+        # Apply Gaussian Blur
+        image = cv2.GaussianBlur(image, (11, 11), 0)
         
+        # Segment the image
+        _, regions = segment_image_kmeans_with_spatial(image, K=25)
+
+        watershed_mask = watershed(image)
         binary_mask = np.zeros(image.shape[:2], dtype=np.uint8)
 
         for i, region_pixels in enumerate(regions):
@@ -124,6 +145,16 @@ def Test():
 
             for x, y in region_pixels:
                 binary_mask[x, y] = predicted_label * 255
+        
+        # Check if the predicted mask is pitch black
+        if np.all(binary_mask == 0):  # Check if all pixel values are zero
+            height = binary_mask.shape[0]
+            
+            # Identify regions in the bottom part of the image
+            for i, region_pixels in enumerate(regions):
+                if any(x > height * 0.8 for x, y in region_pixels):  # If any pixel is in the bottom 20%
+                    for x, y in region_pixels:
+                        binary_mask[x, y] = 255  # Set the region to white
         
         # Save the binary mask output
         output_img_path = os.path.join(output_dir, f"{os.path.splitext(img_name)[0]}.png")
@@ -140,10 +171,13 @@ def Test():
 
 
 if __name__ == "__main__":
-    print('Mode <train> or <test>: ')
+    
+    print('Mode <all> or <train> or <test>: ')
     mode = input()
-
-    if mode == 'train':
+    if mode == 'all':
+        Train()
+        Test()
+    elif mode == 'train':
         Train()
     elif mode == 'test':
         Test()
