@@ -1,0 +1,8 @@
+*.png
+*.jpg
+*.jpeg
+*.JPG
+output_dir/
+seg_img/
+testing_dataset/output/
+training_dataset/output/
